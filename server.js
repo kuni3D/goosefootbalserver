@@ -1,6 +1,20 @@
+const express = require('express');
 const WebSocket = require('ws');
+const path = require('path');
 
-const wss = new WebSocket.Server({ port: 8080 });
+const app = express();
+const port = process.env.PORT || 8080;
+
+// Configurar Express para servir archivos estáticos desde la carpeta actual
+app.use(express.static(path.join(__dirname, '.')));
+
+// Crear el servidor HTTP para Express
+const server = app.listen(port, () => {
+    console.log(`Servidor HTTP corriendo en el puerto ${port}`);
+});
+
+// Crear el servidor WebSocket usando el servidor HTTP
+const wss = new WebSocket.Server({ server });
 const rooms = new Map();
 
 wss.on('connection', (ws, req) => {
@@ -39,4 +53,4 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-console.log('Servidor WebSocket corriendo en ws://localhost:8080');
+console.log(`Servidor WebSocket configurado`);
