@@ -1,9 +1,9 @@
 <html>
 <head>
-    <meta http-equiv="Content-Security-Policy" content="
-        script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-        connect-src 'self' wss://multiplayer-game-server-u7xz.onrender.com;
-    ">
+  <meta http-equiv="Content-Security-Policy" content="
+      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
+      connect-src 'self' wss://goosefootballserver.onrender.com;
+  ">
     <title>Pro Evolution Goose 25</title>
     <style>
         body { margin: 0; font-family: Arial, sans-serif; overflow: hidden; }
@@ -82,7 +82,7 @@
 
         function connectWebSocket() {
             console.log(`Intentando conectar al WebSocket con roomId: ${roomId}, playerId: ${playerId}`);
-            socket = new WebSocket(`wss://multiplayer-game-server-u7xz.onrender.com${roomId}:${playerId}`);
+            socket = new WebSocket(`wss://goosefootballserver.onrender.com${roomId}:${playerId}`);
 
             socket.onopen = () => {
                 console.log('Conectado al servidor WebSocket');
