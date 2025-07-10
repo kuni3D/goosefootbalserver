@@ -1,56 +1,61 @@
 const express = require('express');
-const WebSocket = require('ws');
-const path = require('path');
+   const WebSocket = require('ws');
+   const path = require('path');
 
-const app = express();
-const port = process.env.PORT; // Solo usa el puerto de la variable de entorno
+   const app = express();
+   const port = process.env.PORT; // Solo usa el puerto de Render
 
-// Configurar Express para servir archivos estáticos desde la carpeta actual
-app.use(express.static(path.join(__dirname, '.')));
+   // Añade una ruta raíz para probar
+   app.get('/', (req, res) => {
+       res.send('Servidor funcionando correctamente');
+   });
 
-// Crear el servidor HTTP para Express
-const server = app.listen(port, () => {
-    console.log(`Servidor HTTP corriendo en el puerto ${port}`);
-});
+   // Configurar Express para servir archivos estáticos
+   app.use(express.static(path.join(__dirname, '.')));
 
-// Crear el servidor WebSocket usando el servidor HTTP
-const wss = new WebSocket.Server({ server });
-const rooms = new Map();
+   // Crear el servidor HTTP
+   const server = app.listen(port, () => {
+       console.log(`Servidor HTTP corriendo en el puerto ${port}`);
+   });
 
-wss.on('connection', (ws, req) => {
-    const urlParams = new URLSearchParams(req.url.split('?')[1]);
-    const id = urlParams.get('id');
-    const [roomId, playerId] = id.split(':');
+   // Crear el servidor WebSocket
+   const wss = new WebSocket.Server({ server });
+   const rooms = new Map();
 
-    console.log(`Nuevo jugador conectado: ${playerId} en la sala ${roomId}`);
+   wss.on('connection', (ws, req) => {
+       const urlParams = new URLSearchParams(req.url.split('?')[1]);
+       const id = urlParams.get('id');
+       const [roomId, playerId] = id.split(':');
 
-    if (!rooms.has(roomId)) {
-        rooms.set(roomId, new Set());
-    }
-    const room = rooms.get(roomId);
-    room.add(ws);
+       console.log(`Nuevo jugador conectado: ${playerId} en la sala ${roomId}`);
 
-    const playerNumber = room.size === 1 ? 1 : 2;
-    ws.send(JSON.stringify({ type: 'playerId', id: playerId, playerNumber: playerNumber }));
+       if (!rooms.has(roomId)) {
+           rooms.set(roomId, new Set());
+       }
+       const room = rooms.get(roomId);
+       room.add(ws);
 
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
-        console.log(`Mensaje recibido en la sala ${roomId}:`, data);
+       const playerNumber = room.size === 1 ? 1 : 2;
+       ws.send(JSON.stringify({ type: 'playerId', id: playerId, playerNumber: playerNumber }));
 
-        room.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(data));
-            }
-        });
-    });
+       ws.on('message', (message) => {
+           const data = JSON.parse(message);
+           console.log(`Mensaje recibido en la sala ${roomId}:`, data);
 
-    ws.on('close', () => {
-        console.log(`Jugador ${playerId} desconectado de la sala ${roomId}`);
-        room.delete(ws);
-        if (room.size === 0) {
-            rooms.delete(roomId);
-        }
-    });
-});
+           room.forEach((client) => {
+               if (client !== ws && client.readyState === WebSocket.OPEN) {
+                   client.send(JSON.stringify(data));
+               }
+           });
+       });
 
-console.log(`Servidor WebSocket configurado`);
+       ws.on('close', () => {
+           console.log(`Jugador ${playerId} desconectado de la sala ${roomId}`);
+           room.delete(ws);
+           if (room.size === 0) {
+               rooms.delete(roomId);
+           }
+       });
+   });
+
+   console.log(`Servidor WebSocket configurado`);
