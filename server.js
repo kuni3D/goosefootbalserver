@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const path = require('path');
 
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT; // Solo usa el puerto de la variable de entorno
 
 // Configurar Express para servir archivos estáticos desde la carpeta actual
 app.use(express.static(path.join(__dirname, '.')));
