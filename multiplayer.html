@@ -70,7 +70,7 @@
 
         let scene, camera, renderer, composer, clock;
         let playerModel, opponentModel, playerMixer, opponentMixer;
-        let ball, velocity = new THREE.Vector3(0, 0, 0);
+        let ball, velocity = new THREE.Vector3(0, 0, 0), targetBallPosition = { x: 0, y: 0, z: 0 };
         let team1Score = 0, team2Score = 0;
         const scoreboard = document.getElementById('scoreboard');
         const speed = 0.1;
@@ -128,7 +128,7 @@
                     }
                 } else if (data.type === 'ballPosition') {
                     if (ball && data.playerId !== playerId) {
-                        ball.position.set(data.x, data.y, data.z);
+                        targetBallPosition = { x: data.x, y: data.y, z: data.z };
                         velocity.set(data.vx, data.vy, data.vz);
                     }
                 } else if (data.type === 'score') {
@@ -139,11 +139,13 @@
                     if (ball) {
                         ball.position.set(0, 0, 0);
                         velocity.set(0, 0, 0);
+                        targetBallPosition = { x: 0, y: 0, z: 0 };
                     }
                 } else if (data.type === 'resetGame') {
                     if (ball) {
                         ball.position.set(0, 0, 0);
                         velocity.set(0, 0, 0);
+                        targetBallPosition = { x: 0, y: 0, z: 0 };
                         team1Score = 0;
                         team2Score = 0;
                         updateScoreboard();
@@ -456,7 +458,7 @@
                 firework.geometry.attributes.position.needsUpdate = true;
                 firework.material.opacity = firework.userData.life / 2.0;
 
-                if (firework.userData.life <= 0) {
+                if (data.userData.life <= 0) {
                     scene.remove(firework);
                     fireworks.splice(i, 1);
                 }
@@ -483,6 +485,7 @@
                 team2Score++;
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
+                targetBallPosition = { x: 0, y: 0, z: 0 };
                 if (isConnected) socket.send(JSON.stringify({ type: 'score', team1Score, team2Score }));
                 createFireworks(0, 2, -2.3);
                 updateScoreboard();
@@ -491,6 +494,7 @@
                 team1Score++;
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
+                targetBallPosition = { x: 0, y: 0, z: 0 };
                 if (isConnected) socket.send(JSON.stringify({ type: 'score', team1Score, team2Score }));
                 createFireworks(0, 2, 2.3);
                 updateScoreboard();
@@ -532,9 +536,10 @@
             if (!ball) return false;
             let collided = false;
 
+            const ballPosition = new THREE.Vector3(targetBallPosition.x, targetBallPosition.y, targetBallPosition.z);
+            ballBox.setFromCenterAndSize(ballPosition, new THREE.Vector3(0.16, 0.16, 0.16));
+
             if (playerNumber === 1 && playerModel) {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.08);
                 playerBox.setFromObject(playerModel);
                 playerBox.expandByScalar(0.09);
 
@@ -551,8 +556,6 @@
                     collided = true;
                 }
             } else if (playerNumber === 2 && opponentModel) {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.08);
                 opponentBox.setFromObject(opponentModel);
                 opponentBox.expandByScalar(0.09);
 
@@ -577,9 +580,10 @@
             if (!ball) return false;
             let kicked = false;
 
+            const ballPosition = new THREE.Vector3(targetBallPosition.x, targetBallPosition.y, targetBallPosition.z);
+            ballBox.setFromCenterAndSize(ballPosition, new THREE.Vector3(0.2, 0.2, 0.2));
+
             if (playerNumber === 1 && playerModel && playerModel.currentAction === 'patear') {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.1);
                 playerBox.setFromObject(playerModel);
                 playerBox.expandByScalar(0.2);
 
@@ -597,8 +601,6 @@
                     kicked = true;
                 }
             } else if (playerNumber === 2 && opponentModel && opponentModel.currentAction === '2patea') {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.1);
                 opponentBox.setFromObject(opponentModel);
                 opponentBox.expandByScalar(0.2);
 
@@ -620,7 +622,7 @@
         }
 
         let lastUpdate = 0;
-        const updateRate = 1000 / 15; // 15 FPS para reducir mensajes
+        const updateRate = 1000 / 15; // 15 FPS
 
         function animate() {
             requestAnimationFrame(animate);
@@ -731,9 +733,9 @@
 
             if (ball) {
                 velocity.y += GRAVITY;
-                ball.position.x += velocity.x;
-                ball.position.y += velocity.y;
-                ball.position.z += velocity.z;
+                ball.position.x += (targetBallPosition.x - ball.position.x) * 0.1; // Interpolación
+                ball.position.y += (targetBallPosition.y - ball.position.y) * 0.1;
+                ball.position.z += (targetBallPosition.z - ball.position.z) * 0.1;
 
                 if (now - lastUpdate >= updateRate) {
                     const ballMessage = {
@@ -755,14 +757,29 @@
                 if (ball.position.y < 0) {
                     ball.position.y = 0;
                     velocity.y *= -0.5;
+                    targetBallPosition.y = ball.position.y;
                 }
-                if (Math.abs(ball.position.x) > roomSizeX) velocity.x = -velocity.x;
-                if (Math.abs(ball.position.z) > roomSizeZ) velocity.z = -velocity.z;
+                if (Math.abs(ball.position.x) > roomSizeX) {
+                    velocity.x = -velocity.x;
+                    targetBallPosition.x = ball.position.x;
+                }
+                if (Math.abs(ball.position.z) > roomSizeZ) {
+                    velocity.z = -velocity.z;
+                    targetBallPosition.z = ball.position.z;
+                }
                 velocity.multiplyScalar(0.99);
 
                 checkCollisions();
-                checkCharacterBallCollision();
-                checkKickCollision();
+                if (checkCharacterBallCollision()) {
+                    targetBallPosition.x = ball.position.x;
+                    targetBallPosition.y = ball.position.y;
+                    targetBallPosition.z = ball.position.z;
+                }
+                if (checkKickCollision()) {
+                    targetBallPosition.x = ball.position.x;
+                    targetBallPosition.y = ball.position.y;
+                    targetBallPosition.z = ball.position.z;
+                }
                 isBallInGoal();
                 updateFireworks();
                 composer.render();
@@ -775,6 +792,7 @@
             if (ball) {
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
+                targetBallPosition = { x: 0, y: 0, z: 0 };
                 if (isConnected) {
                     socket.send(JSON.stringify({
                         type: 'ballPosition',
@@ -794,6 +812,7 @@
             if (ball) {
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
+                targetBallPosition = { x: 0, y: 0, z: 0 };
             }
 
             team1Score = 0;
