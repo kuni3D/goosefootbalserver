@@ -568,9 +568,11 @@
             if (!ball) return false;
             let collided = false;
 
+            // Usamos la posición objetivo para colisiones
+            const ballPosition = new THREE.Vector3(targetBallPosition.x, targetBallPosition.y, targetBallPosition.z);
+            ballBox.setFromCenterAndSize(ballPosition, new THREE.Vector3(0.16, 0.16, 0.16)); // Ajusta el tamaño según tu modelo
+
             if (playerNumber === 1 && playerModel) {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.08);
                 playerBox.setFromObject(playerModel);
                 playerBox.expandByScalar(0.09);
 
@@ -587,8 +589,6 @@
                     collided = true;
                 }
             } else if (playerNumber === 2 && opponentModel) {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.08);
                 opponentBox.setFromObject(opponentModel);
                 opponentBox.expandByScalar(0.09);
 
@@ -613,9 +613,11 @@
             if (!ball) return false;
             let kicked = false;
 
+            // Usamos la posición objetivo para colisiones
+            const ballPosition = new THREE.Vector3(targetBallPosition.x, targetBallPosition.y, targetBallPosition.z);
+            ballBox.setFromCenterAndSize(ballPosition, new THREE.Vector3(0.2, 0.2, 0.2)); // Ajusta el tamaño según tu modelo
+
             if (playerNumber === 1 && playerModel && playerModel.currentAction === 'patear') {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.1);
                 playerBox.setFromObject(playerModel);
                 playerBox.expandByScalar(0.2);
 
@@ -633,8 +635,6 @@
                     kicked = true;
                 }
             } else if (playerNumber === 2 && opponentModel && opponentModel.currentAction === '2patea') {
-                ballBox.setFromObject(ball);
-                ballBox.expandByScalar(0.1);
                 opponentBox.setFromObject(opponentModel);
                 opponentBox.expandByScalar(0.2);
 
@@ -795,14 +795,22 @@
                 if (Math.abs(ball.position.x) > roomSizeX) velocity.x = -velocity.x;
                 if (Math.abs(ball.position.z) > roomSizeZ) velocity.z = -velocity.z;
                 velocity.multiplyScalar(0.99);
-            }
 
-            checkCollisions();
-            checkCharacterBallCollision();
-            checkKickCollision();
-            isBallInGoal();
-            updateFireworks();
-            composer.render();
+                checkCollisions();
+                if (checkCharacterBallCollision()) {
+                    targetBallPosition.x = ball.position.x; // Sincroniza después de colisión
+                    targetBallPosition.y = ball.position.y;
+                    targetBallPosition.z = ball.position.z;
+                }
+                if (checkKickCollision()) {
+                    targetBallPosition.x = ball.position.x; // Sincroniza después de patada
+                    targetBallPosition.y = ball.position.y;
+                    targetBallPosition.z = ball.position.z;
+                }
+                isBallInGoal();
+                updateFireworks();
+                composer.render();
+            }
         }
 
         animate();
