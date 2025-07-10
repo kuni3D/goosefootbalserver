@@ -2,7 +2,7 @@
 <head>
   <meta http-equiv="Content-Security-Policy" content="
       script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-      connect-src 'self' wss://goosefootballserver.onrender.com;
+      connect-src 'self' wss://gfv2.onrender.com;
   ">
     <title>Pro Evolution Goose 25</title>
     <style>
@@ -81,25 +81,21 @@
         const keys = { w: false, a: false, s: false, d: false, space: false };
 
         function connectWebSocket() {
-            console.log(`Intentando conectar al WebSocket con roomId: ${roomId}, playerId: ${playerId}`);
-            socket = new WebSocket(`wss://goosefootballserver.onrender.com/websocket?id=${roomId}:${playerId}`);
+            socket = new WebSocket(`wss://gfv2.onrender.com/websocket?id=${roomId}:${playerId}`);
 
             socket.onopen = () => {
-                console.log('Conectado al servidor WebSocket');
                 isConnected = true;
                 connectionStatus.textContent = 'Conectado al servidor';
                 connectionStatus.style.color = '#00ff00';
             };
 
             socket.onerror = (error) => {
-                console.error('Error en WebSocket:', error);
                 isConnected = false;
                 connectionStatus.textContent = 'Error al conectar al servidor';
                 connectionStatus.style.color = '#ff0000';
             };
 
             socket.onclose = () => {
-                console.log('Conexión WebSocket cerrada, intentando reconectar...');
                 isConnected = false;
                 connectionStatus.textContent = 'Conexión perdida, reconectando...';
                 connectionStatus.style.color = '#ff0000';
@@ -108,15 +104,12 @@
 
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                console.log('Mensaje recibido:', data);
 
                 if (data.type === 'playerId') {
                     playerId = data.id;
                     playerNumber = data.playerNumber;
-                    console.log('Soy el jugador', playerId, 'Número:', playerNumber);
                 } else if (data.type === 'characterPosition') {
                     if (data.playerId !== playerId) {
-                        console.log('Recibida posición del otro jugador:', data);
                         const otherModel = playerNumber === 1 ? opponentModel : playerModel;
                         if (otherModel) {
                             otherModel.position.set(data.x, data.y, data.z);
@@ -129,20 +122,14 @@
                                     }
                                     otherModel.animations[data.action].reset().fadeIn(0.25).play();
                                     otherModel.currentAction = data.action;
-                                    console.log(`Animación ${data.action} aplicada al otro jugador`);
                                 }
-                            } else {
-                                console.warn('No se pudo aplicar la animación:', data.action);
                             }
-                        } else {
-                            console.warn('Modelo del otro jugador no está listo');
                         }
                     }
                 } else if (data.type === 'ballPosition') {
                     if (ball && data.playerId !== playerId) {
                         ball.position.set(data.x, data.y, data.z);
                         velocity.set(data.vx, data.vy, data.vz);
-                        console.log('Pelota sincronizada:', ball.position);
                     }
                 } else if (data.type === 'score') {
                     team1Score = data.team1Score;
@@ -245,15 +232,10 @@
             const loader = new THREE.GLTFLoader();
             loader.load('/pelotita2.glb', (gltf) => {
                 const model = gltf.scene;
-                console.log('Modelo cargado:', model);
                 model.traverse((child) => {
                     if (child.isMesh) {
-                        console.log('Mesh encontrado:', child.name, 'Posición:', child.position);
                         child.castShadow = true;
                         child.receiveShadow = true;
-                    }
-                    if (child.isBone) {
-                        console.log('Hueso encontrado:', child.name);
                     }
                 });
                 scene.add(model);
@@ -268,7 +250,6 @@
                         if (child.name === 'ladrillo' && !brickGeometry) {
                             brickGeometry = child.geometry.clone();
                             brickMaterial = new THREE.MeshPhongMaterial({ color: 0x7B7B7B });
-                            console.log('Geometría base encontrada en "ladrillo"');
                         }
                         const match = child.name.match(/^ladrillo(\d+)?$/);
                         if (match) {
@@ -280,7 +261,6 @@
                                     .setPosition(child.position);
                                 brickInstances[index] = matrix;
                                 bricksToRemove.push(child);
-                                console.log(`Ladrillo ${child.name} asignado al índice ${index}, Posición:`, child.position, 'Escala:', child.scale);
                             }
                         }
                     }
@@ -299,23 +279,18 @@
 
                     instancedBricks.instanceMatrix.needsUpdate = true;
                     scene.add(instancedBricks);
-                    console.log(`Éxito: ${brickInstances.filter(m => m !== undefined).length} de 1292 ladrillos instanciados`);
 
                     bricksToRemove.forEach((brick) => {
                         brick.parent.remove(brick);
                     });
-                } else {
-                    console.error('Fallo: No se encontró "ladrillo" o no hay instancias válidas');
                 }
 
                 ball = model.getObjectByName('pelota');
                 if (!ball) console.error('No se encontró la pelota en el modelo');
-                else console.log('Pelota asignada:', ball);
 
                 playerModel = model.getObjectByName('ganzito');
                 const armature = model.getObjectByName('armature');
                 if (playerModel && armature) {
-                    console.log('Ganzito y armature encontrados');
                     playerModel = armature;
                     playerMixer = new THREE.AnimationMixer(playerModel);
                     playerModel.animations = {};
@@ -325,22 +300,17 @@
                         if (animationNames.includes(clipNameLower)) {
                             playerModel.animations[clipNameLower] = playerMixer.clipAction(clip);
                             playerModel.animations[clipNameLower].setLoop(clipNameLower === 'patear' ? THREE.LoopOnce : THREE.LoopRepeat);
-                            console.log(`Animación para ganzito ${clipNameLower} cargada, duración: ${clip.duration} segundos`);
                         }
                     });
                     if (playerModel.animations['idlecomun']) {
                         playerModel.animations['idlecomun'].play();
                         playerModel.currentAction = 'idlecomun';
-                        console.log('idlecomun iniciado para ganzito');
                     }
-                } else {
-                    console.error('Falta ganzito o armature en el modelo');
                 }
 
                 opponentModel = model.getObjectByName('ganzit2');
                 const armatur2 = model.getObjectByName('armatur2');
                 if (opponentModel && armatur2) {
-                    console.log('Ganzit2 y armatur2 encontrados');
                     opponentModel = armatur2;
                     opponentModel.position.set(0, 0.11, 0);
                     opponentMixer = new THREE.AnimationMixer(opponentModel);
@@ -351,16 +321,12 @@
                         if (animationNames2.includes(clipNameLower)) {
                             opponentModel.animations[clipNameLower] = opponentMixer.clipAction(clip);
                             opponentModel.animations[clipNameLower].setLoop(clipNameLower === '2patea' ? THREE.LoopOnce : THREE.LoopRepeat);
-                            console.log(`Animación para ganzit2 ${clipNameLower} cargada, duración: ${clip.duration} segundos`);
                         }
                     });
                     if (opponentModel.animations['2quieto']) {
                         opponentModel.animations['2quieto'].play();
                         opponentModel.currentAction = '2quieto';
-                        console.log('2quieto iniciado para ganzit2');
                     }
-                } else {
-                    console.warn('No se encontraron ganzit2 o armatur2 en el modelo');
                 }
 
                 camera.position.set(0, 5, 10);
@@ -387,15 +353,12 @@
         window.addEventListener('keydown', (event) => {
             const key = event.key.toLowerCase();
             const code = event.code;
-            console.log('Tecla presionada:', key, 'Código:', code);
 
             if (key === 'w' || code === 'KeyW') keys.w = true;
             if (key === 'a' || code === 'KeyA') keys.a = true;
             if (key === 's' || code === 'KeyS') keys.s = true;
             if (key === 'd' || code === 'KeyD') keys.d = true;
             if (key === ' ' || code === 'Space') keys.space = true;
-
-            console.log(`Tecla ${key} (código: ${code}) presionada, keys:`, keys);
         });
 
         window.addEventListener('keyup', (event) => {
@@ -407,8 +370,6 @@
             if (key === 's' || code === 'KeyS') keys.s = false;
             if (key === 'd' || code === 'KeyD') keys.d = false;
             if (key === ' ' || code === 'Space') keys.space = false;
-
-            console.log(`Tecla ${key} (código: ${code}) soltada, keys:`, keys);
         });
 
         const ballBox = new THREE.Box3();
@@ -519,7 +480,6 @@
             );
 
             if (inGoal1) {
-                console.log("¡Gol en el arco del Equipo 1! Punto para Equipo 2");
                 team2Score++;
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
@@ -528,7 +488,6 @@
                 updateScoreboard();
                 return true;
             } else if (inGoal2) {
-                console.log("¡Gol en el arco del Equipo 2! Punto para Equipo 1");
                 team1Score++;
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
@@ -660,9 +619,13 @@
             return kicked;
         }
 
+        let lastUpdate = 0;
+        const updateRate = 1000 / 15; // 15 FPS para reducir mensajes
+
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+            const now = Date.now();
 
             if (playerMixer) playerMixer.update(delta);
             if (opponentMixer) opponentMixer.update(delta);
@@ -683,8 +646,6 @@
             }
 
             if (myModel) {
-                console.log('Controlando al jugador:', playerNumber, 'Modelo:', myModel ? myModel.name : 'No asignado');
-
                 const direction = new THREE.Vector3();
                 if (keys.w) direction.z -= 1;
                 if (keys.s) direction.z += 1;
@@ -729,7 +690,6 @@
                     };
                     if (isConnected) {
                         socket.send(JSON.stringify(message));
-                        console.log('Enviada posición con patada:', message);
                     }
                     myModel.animations[kickAnimation].getMixer().addEventListener('finished', (e) => {
                         if (e.action === myModel.animations[kickAnimation] && myModel.animations[idleAnimation]) {
@@ -748,11 +708,10 @@
                             };
                             if (isConnected) {
                                 socket.send(JSON.stringify(message));
-                                console.log('Enviada posición después de patada:', message);
                             }
                         }
                     }, { once: true });
-                } else {
+                } else if (now - lastUpdate >= updateRate) {
                     const message = {
                         type: 'characterPosition',
                         playerId: playerId,
@@ -765,25 +724,18 @@
                     };
                     if (isConnected) {
                         socket.send(JSON.stringify(message));
-                        console.log('Enviada posición:', message);
                     }
+                    lastUpdate = now;
                 }
-            } else {
-                console.warn('Esperando asignación de playerNumber...');
             }
 
             if (ball) {
                 velocity.y += GRAVITY;
-                ball.position.add(velocity);
-                if (ball.position.y < 0) {
-                    ball.position.y = 0;
-                    velocity.y *= -0.5;
-                }
-                if (Math.abs(ball.position.x) > roomSizeX) velocity.x = -velocity.x;
-                if (Math.abs(ball.position.z) > roomSizeZ) velocity.z = -velocity.z;
-                velocity.multiplyScalar(0.99);
+                ball.position.x += velocity.x;
+                ball.position.y += velocity.y;
+                ball.position.z += velocity.z;
 
-                if (isConnected) {
+                if (now - lastUpdate >= updateRate) {
                     const ballMessage = {
                         type: 'ballPosition',
                         playerId: playerId,
@@ -794,27 +746,35 @@
                         vy: velocity.y,
                         vz: velocity.z
                     };
-                    socket.send(JSON.stringify(ballMessage));
-                    console.log('Enviada posición de la pelota:', ballMessage);
+                    if (isConnected) {
+                        socket.send(JSON.stringify(ballMessage));
+                    }
+                    lastUpdate = now;
                 }
-            }
 
-            checkCollisions();
-            checkCharacterBallCollision();
-            checkKickCollision();
-            isBallInGoal();
-            updateFireworks();
-            composer.render();
+                if (ball.position.y < 0) {
+                    ball.position.y = 0;
+                    velocity.y *= -0.5;
+                }
+                if (Math.abs(ball.position.x) > roomSizeX) velocity.x = -velocity.x;
+                if (Math.abs(ball.position.z) > roomSizeZ) velocity.z = -velocity.z;
+                velocity.multiplyScalar(0.99);
+
+                checkCollisions();
+                checkCharacterBallCollision();
+                checkKickCollision();
+                isBallInGoal();
+                updateFireworks();
+                composer.render();
+            }
         }
 
         animate();
 
         function resetBall() {
-            console.log('Botón "Reiniciar pelota" presionado');
             if (ball) {
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
-                console.log('Pelota reiniciada a posición:', ball.position, 'Velocidad:', velocity);
                 if (isConnected) {
                     socket.send(JSON.stringify({
                         type: 'ballPosition',
@@ -827,24 +787,17 @@
                         vz: velocity.z
                     }));
                 }
-            } else {
-                console.error('No se encontró la pelota para reiniciar');
             }
         }
 
         function resetGame() {
-            console.log('Botón "Reiniciar partida" presionado');
             if (ball) {
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
-                console.log('Pelota reiniciada a posición:', ball.position, 'Velocidad:', velocity);
-            } else {
-                console.error('No se encontró la pelota para reiniciar');
             }
 
             team1Score = 0;
             team2Score = 0;
-            console.log('Puntajes reiniciados: Equipo 1:', team1Score, 'Equipo 2:', team2Score);
             updateScoreboard();
 
             if (isConnected) {
@@ -862,15 +815,8 @@
             }
         }
 
-        document.getElementById('resetBallButton')?.addEventListener('click', () => {
-            console.log('Evento click en resetBallButton detectado');
-            resetBall();
-        });
-
-        document.getElementById('resetGameButton')?.addEventListener('click', () => {
-            console.log('Evento click en resetGameButton detectado');
-            resetGame();
-        });
+        document.getElementById('resetBallButton')?.addEventListener('click', resetBall);
+        document.getElementById('resetGameButton')?.addEventListener('click', resetGame);
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
