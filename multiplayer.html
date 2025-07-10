@@ -458,7 +458,7 @@
                 firework.geometry.attributes.position.needsUpdate = true;
                 firework.material.opacity = firework.userData.life / 2.0;
 
-                if (data.userData.life <= 0) {
+                if (firework.userData.life <= 0) {
                     scene.remove(firework);
                     fireworks.splice(i, 1);
                 }
@@ -529,19 +529,21 @@
                 (crossbar2Obj && ballBox.intersectsBox(crossbar2Box))) {
                 velocity.x = -velocity.x;
                 velocity.z = -velocity.z;
+                targetBallPosition.x = ball.position.x;
+                targetBallPosition.z = ball.position.z;
             }
         }
 
         function checkCharacterBallCollision() {
-            if (!ball) return false;
+            if (!ball || !playerModel || !opponentModel) return false;
             let collided = false;
 
-            const ballPosition = new THREE.Vector3(targetBallPosition.x, targetBallPosition.y, targetBallPosition.z);
-            ballBox.setFromCenterAndSize(ballPosition, new THREE.Vector3(0.16, 0.16, 0.16));
+            ballBox.setFromObject(ball); // Usa la posición real de la pelota
+            ballBox.expandByScalar(0.08); // Ajusta el tamaño de la pelota para colisión
 
             if (playerNumber === 1 && playerModel) {
                 playerBox.setFromObject(playerModel);
-                playerBox.expandByScalar(0.09);
+                playerBox.expandByScalar(0.15); // Aumenta el tamaño de la caja para asegurar colisión
 
                 if (ballBox.intersectsBox(playerBox)) {
                     let direction = new THREE.Vector3(0, 0, 0);
@@ -553,11 +555,13 @@
                     const kickForce = 0.01;
                     velocity.x += direction.x * kickForce;
                     velocity.z += direction.z * kickForce;
+                    targetBallPosition.x = ball.position.x; // Sincroniza la posición objetivo
+                    targetBallPosition.z = ball.position.z;
                     collided = true;
                 }
             } else if (playerNumber === 2 && opponentModel) {
                 opponentBox.setFromObject(opponentModel);
-                opponentBox.expandByScalar(0.09);
+                opponentBox.expandByScalar(0.15); // Aumenta el tamaño de la caja para asegurar colisión
 
                 if (ballBox.intersectsBox(opponentBox)) {
                     let direction = new THREE.Vector3(0, 0, 0);
@@ -569,6 +573,8 @@
                     const kickForce = 0.01;
                     velocity.x += direction.x * kickForce;
                     velocity.z += direction.z * kickForce;
+                    targetBallPosition.x = ball.position.x; // Sincroniza la posición objetivo
+                    targetBallPosition.z = ball.position.z;
                     collided = true;
                 }
             }
@@ -577,11 +583,11 @@
         }
 
         function checkKickCollision() {
-            if (!ball) return false;
+            if (!ball || !playerModel || !opponentModel) return false;
             let kicked = false;
 
-            const ballPosition = new THREE.Vector3(targetBallPosition.x, targetBallPosition.y, targetBallPosition.z);
-            ballBox.setFromCenterAndSize(ballPosition, new THREE.Vector3(0.2, 0.2, 0.2));
+            ballBox.setFromObject(ball); // Usa la posición real de la pelota
+            ballBox.expandByScalar(0.1);
 
             if (playerNumber === 1 && playerModel && playerModel.currentAction === 'patear') {
                 playerBox.setFromObject(playerModel);
@@ -598,6 +604,9 @@
                     velocity.x = direction.x * kickForce;
                     velocity.z = direction.z * kickForce;
                     velocity.y = liftForce;
+                    targetBallPosition.x = ball.position.x;
+                    targetBallPosition.y = ball.position.y;
+                    targetBallPosition.z = ball.position.z;
                     kicked = true;
                 }
             } else if (playerNumber === 2 && opponentModel && opponentModel.currentAction === '2patea') {
@@ -615,6 +624,9 @@
                     velocity.x = direction.x * kickForce;
                     velocity.z = direction.z * kickForce;
                     velocity.y = liftForce;
+                    targetBallPosition.x = ball.position.x;
+                    targetBallPosition.y = ball.position.y;
+                    targetBallPosition.z = ball.position.z;
                     kicked = true;
                 }
             }
