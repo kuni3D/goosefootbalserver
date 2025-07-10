@@ -2,7 +2,7 @@
 <head>
   <meta http-equiv="Content-Security-Policy" content="
       script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-      connect-src 'self' wss://goosefootballserver.onrender.com;
+      connect-src 'self' wss://gfv2.onrender.com;
   ">
     <title>Pro Evolution Goose 25</title>
     <style>
@@ -70,7 +70,7 @@
 
         let scene, camera, renderer, composer, clock;
         let playerModel, opponentModel, playerMixer, opponentMixer;
-        let ball, velocity = new THREE.Vector3(0, 0, 0);
+        let ball, velocity = new THREE.Vector3(0, 0, 0), targetBallPosition = { x: 0, y: 0, z: 0 };
         let team1Score = 0, team2Score = 0;
         const scoreboard = document.getElementById('scoreboard');
         const speed = 0.1;
@@ -82,7 +82,7 @@
 
         function connectWebSocket() {
             console.log(`Intentando conectar al WebSocket con roomId: ${roomId}, playerId: ${playerId}`);
-            socket = new WebSocket(`wss://goosefootballserver.onrender.com/websocket?id=${roomId}:${playerId}`);
+            socket = new WebSocket(`wss://gfv2.onrender.com/websocket?id=${roomId}:${playerId}`);
 
             socket.onopen = () => {
                 console.log('Conectado al servidor WebSocket');
@@ -116,7 +116,6 @@
                     console.log('Soy el jugador', playerId, 'Número:', playerNumber);
                 } else if (data.type === 'characterPosition') {
                     if (data.playerId !== playerId) {
-                        console.log('Recibida posición del otro jugador:', data);
                         const otherModel = playerNumber === 1 ? opponentModel : playerModel;
                         if (otherModel) {
                             otherModel.position.set(data.x, data.y, data.z);
@@ -131,18 +130,14 @@
                                     otherModel.currentAction = data.action;
                                     console.log(`Animación ${data.action} aplicada al otro jugador`);
                                 }
-                            } else {
-                                console.warn('No se pudo aplicar la animación:', data.action);
                             }
-                        } else {
-                            console.warn('Modelo del otro jugador no está listo');
                         }
                     }
                 } else if (data.type === 'ballPosition') {
                     if (ball && data.playerId !== playerId) {
-                        ball.position.set(data.x, data.y, data.z);
+                        targetBallPosition = { x: data.x, y: data.y, z: data.z };
                         velocity.set(data.vx, data.vy, data.vz);
-                        console.log('Pelota sincronizada:', ball.position);
+                        console.log('Pelota sincronizada:', targetBallPosition);
                     }
                 } else if (data.type === 'score') {
                     team1Score = data.team1Score;
@@ -660,9 +655,13 @@
             return kicked;
         }
 
+        let lastUpdate = 0;
+        const updateRate = 1000 / 30; // 30 FPS
+
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+            const now = Date.now();
 
             if (playerMixer) playerMixer.update(delta);
             if (opponentMixer) opponentMixer.update(delta);
@@ -683,8 +682,6 @@
             }
 
             if (myModel) {
-                console.log('Controlando al jugador:', playerNumber, 'Modelo:', myModel ? myModel.name : 'No asignado');
-
                 const direction = new THREE.Vector3();
                 if (keys.w) direction.z -= 1;
                 if (keys.s) direction.z += 1;
@@ -729,7 +726,6 @@
                     };
                     if (isConnected) {
                         socket.send(JSON.stringify(message));
-                        console.log('Enviada posición con patada:', message);
                     }
                     myModel.animations[kickAnimation].getMixer().addEventListener('finished', (e) => {
                         if (e.action === myModel.animations[kickAnimation] && myModel.animations[idleAnimation]) {
@@ -748,11 +744,10 @@
                             };
                             if (isConnected) {
                                 socket.send(JSON.stringify(message));
-                                console.log('Enviada posición después de patada:', message);
                             }
                         }
                     }, { once: true });
-                } else {
+                } else if (now - lastUpdate >= updateRate) {
                     const message = {
                         type: 'characterPosition',
                         playerId: playerId,
@@ -765,25 +760,18 @@
                     };
                     if (isConnected) {
                         socket.send(JSON.stringify(message));
-                        console.log('Enviada posición:', message);
                     }
+                    lastUpdate = now;
                 }
-            } else {
-                console.warn('Esperando asignación de playerNumber...');
             }
 
             if (ball) {
                 velocity.y += GRAVITY;
-                ball.position.add(velocity);
-                if (ball.position.y < 0) {
-                    ball.position.y = 0;
-                    velocity.y *= -0.5;
-                }
-                if (Math.abs(ball.position.x) > roomSizeX) velocity.x = -velocity.x;
-                if (Math.abs(ball.position.z) > roomSizeZ) velocity.z = -velocity.z;
-                velocity.multiplyScalar(0.99);
+                ball.position.x += (targetBallPosition.x - ball.position.x) * 0.1; // Interpolación
+                ball.position.y += (targetBallPosition.y - ball.position.y) * 0.1;
+                ball.position.z += (targetBallPosition.z - ball.position.z) * 0.1;
 
-                if (isConnected) {
+                if (now - lastUpdate >= updateRate) {
                     const ballMessage = {
                         type: 'ballPosition',
                         playerId: playerId,
@@ -794,9 +782,19 @@
                         vy: velocity.y,
                         vz: velocity.z
                     };
-                    socket.send(JSON.stringify(ballMessage));
-                    console.log('Enviada posición de la pelota:', ballMessage);
+                    if (isConnected) {
+                        socket.send(JSON.stringify(ballMessage));
+                    }
+                    lastUpdate = now;
                 }
+
+                if (ball.position.y < 0) {
+                    ball.position.y = 0;
+                    velocity.y *= -0.5;
+                }
+                if (Math.abs(ball.position.x) > roomSizeX) velocity.x = -velocity.x;
+                if (Math.abs(ball.position.z) > roomSizeZ) velocity.z = -velocity.z;
+                velocity.multiplyScalar(0.99);
             }
 
             checkCollisions();
@@ -814,7 +812,7 @@
             if (ball) {
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
-                console.log('Pelota reiniciada a posición:', ball.position, 'Velocidad:', velocity);
+                targetBallPosition = { x: 0, y: 0, z: 0 };
                 if (isConnected) {
                     socket.send(JSON.stringify({
                         type: 'ballPosition',
@@ -827,8 +825,6 @@
                         vz: velocity.z
                     }));
                 }
-            } else {
-                console.error('No se encontró la pelota para reiniciar');
             }
         }
 
@@ -837,14 +833,11 @@
             if (ball) {
                 ball.position.set(0, 0, 0);
                 velocity.set(0, 0, 0);
-                console.log('Pelota reiniciada a posición:', ball.position, 'Velocidad:', velocity);
-            } else {
-                console.error('No se encontró la pelota para reiniciar');
+                targetBallPosition = { x: 0, y: 0, z: 0 };
             }
 
             team1Score = 0;
             team2Score = 0;
-            console.log('Puntajes reiniciados: Equipo 1:', team1Score, 'Equipo 2:', team2Score);
             updateScoreboard();
 
             if (isConnected) {
